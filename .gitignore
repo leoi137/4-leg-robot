@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+
+# Generated previews / renders
+*.gif
+*.mp4
+*.png
+!docs/media/4_leg_robot.png
+!docs/media/spyder_preview.gif
+
+# Planning / research docs (local only)
+*TODO*.md
+*RESEARCH*.md
+
+# Virtualenvs
+mujoco-env/
