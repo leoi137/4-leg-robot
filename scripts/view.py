@@ -26,7 +26,7 @@ import mujoco.viewer
 import numpy as np
 
 DEFAULT_MODEL = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "spyder.xml"
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "scene.xml"
 )
 
 

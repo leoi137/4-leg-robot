@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<!-- A first, minimal URDF (Phase 3 rehearsal of the portable format).
+     Not the full robot: just a torso wearing the box-mesh skin + one leg on a
+     hinge, enough to prove URDF -> MuJoCo import works (meshes included).
+     Phase 4 authors the real, full robot URDF from CAD. -->
+<robot name="spyder_torso">
+
+  <!-- MuJoCo reads this <mujoco> block when importing a URDF. Two gotchas it fixes:
+       - discardvisual="false": by default MuJoCo THROWS AWAY visual meshes on
+         URDF import; this keeps them.
+       - meshdir: where to find the STL (relative to this .urdf file). -->
+  <mujoco>
+    <compiler meshdir="../models/assets" discardvisual="false" balanceinertia="true"/>
+  </mujoco>
+
+  <!-- a "link" = one rigid part. The torso, wearing the box-mesh skin. -->
+  <link name="torso">
+    <inertial>
+      <mass value="1.0"/>
+      <inertia ixx="0.02" ixy="0" ixz="0" iyy="0.02" iyz="0" izz="0.02"/>
+    </inertial>
+    <visual>
+      <geometry><mesh filename="torso_shell.stl"/></geometry>
+      <material name="black"><color rgba="0.07 0.07 0.08 1"/></material>
+    </visual>
+    <collision>
+      <geometry><sphere radius="0.25"/></geometry>
+    </collision>
+  </link>
+
+  <!-- a second link: one stub leg (URDF has no "capsule", so a cylinder). -->
+  <link name="leg">
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.2 0 0" rpy="0 1.5708 0"/>
+      <geometry><cylinder radius="0.04" length="0.4"/></geometry>
+      <material name="tan"><color rgba="0.8 0.6 0.4 1"/></material>
+    </visual>
+  </link>
+
+  <!-- a "joint" connects two links. revolute = a hinge, like the Ant's hips. -->
+  <joint name="hip" type="revolute">
+    <parent link="torso"/>
+    <child link="leg"/>
+    <origin xyz="0.25 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.5" upper="0.5" effort="150" velocity="10"/>
+  </joint>
+
+</robot>
