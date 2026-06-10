@@ -66,25 +66,57 @@ def record(
     seed: int = 0,
     fps: int = 30,
     every: int = 2,
+    main_body: str = "torso",
+    cam_azimuth: float | None = None,
+    cam_elevation: float = -12.0,
+    cam_distance: float = 3.0,
+    size: int = 480,
 ) -> str:
     """Headless offscreen render of a rollout to GIF/MP4 — no GUI window.
 
     GIF needs no extra deps; .mp4 needs `pip install imageio-ffmpeg`.
+    `main_body` is the torso/trunk body the Ant reward tracks ("trunk" for the quad).
+
+    Camera: by default the Ant env's own tracking camera (a front three-quarter
+    view). Pass `cam_azimuth` to instead render from an explicit orbit camera
+    (azimuth/elevation/distance) that follows `main_body` — used to capture the
+    same rollout from a second angle (e.g. a side profile) for a matched pair.
     """
+    manual_cam = cam_azimuth is not None
     env = gym.make(
-        "Ant-v5", xml_file=os.path.abspath(xml_path), main_body="torso",
-        render_mode="rgb_array",
+        "Ant-v5", xml_file=os.path.abspath(xml_path), main_body=main_body,
+        render_mode=None if manual_cam else "rgb_array",
     )
     rng = np.random.default_rng(seed)
     nu = env.action_space.shape[0]
     env.reset(seed=seed)
+
+    renderer = cam = body_id = None
+    if manual_cam:
+        # Render the env's own model/data with our camera, so physics + reset
+        # logic stay identical to the default path — only the viewpoint changes.
+        model, data = env.unwrapped.model, env.unwrapped.data
+        renderer = mujoco.Renderer(model, size, size)
+        cam = mujoco.MjvCamera()
+        cam.azimuth, cam.elevation, cam.distance = cam_azimuth, cam_elevation, cam_distance
+        body_id = model.body(main_body).id
+
+    def _frame():
+        if manual_cam:
+            cam.lookat[:] = env.unwrapped.data.xpos[body_id]  # track the body as it moves
+            renderer.update_scene(env.unwrapped.data, cam)
+            return renderer.render()
+        return env.render()
+
     frames = []
     for t in range(steps):
         _, _, terminated, truncated, _ = env.step(_ctrl(policy, rng, nu))
         if t % every == 0:
-            frames.append(env.render())
+            frames.append(_frame())
         if terminated or truncated:
             env.reset()
+    if renderer is not None:
+        renderer.close()
     env.close()
 
     if out.lower().endswith(".gif"):
@@ -103,10 +135,17 @@ def main() -> None:
     p.add_argument("--policy", choices=["zero", "random", "gentle"], default="gentle")
     p.add_argument("--steps", type=int, default=300, help="rollout length for --save")
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--main-body", default="torso", help='reward body: "torso" (Ant) or "trunk" (quad)')
+    p.add_argument("--cam-azimuth", type=float, default=None,
+                   help="explicit orbit-camera azimuth for --save (else the env's tracking cam)")
+    p.add_argument("--cam-elevation", type=float, default=-12.0)
+    p.add_argument("--cam-distance", type=float, default=3.0)
     args = p.parse_args()
 
     if args.save:
-        record(args.xml, out=args.save, steps=args.steps, policy=args.policy, seed=args.seed)
+        record(args.xml, out=args.save, steps=args.steps, policy=args.policy, seed=args.seed,
+               main_body=args.main_body, cam_azimuth=args.cam_azimuth,
+               cam_elevation=args.cam_elevation, cam_distance=args.cam_distance)
     else:
         view(args.xml, physics=args.physics, policy=args.policy, seed=args.seed)
 
