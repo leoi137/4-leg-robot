@@ -8,6 +8,8 @@ __pycache__/
 *.png
 !docs/media/4_leg_robot.png
 !docs/media/spyder_preview.gif
+!docs/media/spyder_quad_preview.gif
+!docs/media/spyder_quad_side.gif
 
 # Planning / research docs (local only)
 *TODO*.md
@@ -15,3 +17,4 @@ __pycache__/
 
 # Virtualenvs
 mujoco-env/
+cad-env/
