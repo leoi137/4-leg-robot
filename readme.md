@@ -1,42 +1,63 @@
 # 4-leg-robot
 
-A custom MuJoCo quadruped (spyder), built up from a drop-in copy of Gymnasium's `Ant-v5`
-into a real **12-DoF "tank" quad** (`Spyder-v0`) with CAD-authored (build123d) meshes.
+A custom MuJoCo quadruped (**spyder**), built up from a drop-in copy of Gymnasium's
+`Ant-v5` (8 DoF) into a real **12-DoF spider** (`Spyder-v0`) — same body, same
+X-stance, one extra *lift* joint per leg.
 
 <table>
   <tr>
-    <td align="center"><img src="docs/media/spyder_quad_preview.gif" width="100%" alt="Spyder quad — front three-quarter"></td>
-    <td align="center"><img src="docs/media/spyder_quad_side.gif" width="100%" alt="Spyder quad — amber-visor angle"></td>
+    <td align="center"><img src="docs/media/spyder12_preview.gif" width="100%" alt="Spyder12 — front three-quarter, wave gait"></td>
+    <td align="center"><img src="docs/media/spyder12_side.gif" width="100%" alt="Spyder12 — side profile, wave gait"></td>
   </tr>
   <tr>
-    <td align="center"><sub>gentle-policy rollout — front three-quarter</sub></td>
-    <td align="center"><sub>same rollout — amber-visor angle</sub></td>
+    <td align="center"><sub>wave-policy rollout — front three-quarter</sub></td>
+    <td align="center"><sub>same rollout — side profile</sub></td>
   </tr>
 </table>
 
 - Setup & commands: [`CLAUDE.md`](CLAUDE.md)
+- Full design rationale & tuning guide: [`docs/design_spyder12.md`](docs/design_spyder12.md)
 
-## The 12-DoF tank quad (Spyder-v0)
+## Why 12 DoF (the 10-second version)
 
-Two environments: `mujoco-env` (Python 3.14, training/rendering) and `cad-env`
-(Python 3.13, build123d mesh authoring — build123d has no 3.14 wheel).
+A foot's position is **three numbers** (forward/back, up/down, near/far) and each
+joint controls one. The Ant's 2 joints per leg trap the foot on a thin curve — it
+can shuffle and turn, but never *lift* a foot to place it. Adding one lift joint
+per leg (4 × 3 = 12) lets each foot reach anywhere in its workspace: stepping,
+climbing, crouching, and terrain work all come from that one change. Joint colors
+in the renders mark the layout: 🔴 hip (sweep) · 🟢 lift (**the new joint**) · 🔵 knee (fold).
+
+| | `models/spyder.xml` | `models/spyder12.xml` |
+|---|---|---|
+| joints per leg | 2 (hip, ankle) | 3 (hip, **lift**, knee) |
+| action / obs | `(8,)` / `(105,)` | `(12,)` / `(113,)` |
+| env id | `Ant-v5` (byte-compatible) | `Spyder-v0` (`envs/spyder_env.py`) |
+| checked by | `scripts/check_compat.py` | `scripts/check_spyder.py` |
+
+## Commands
 
 ```bash
-# 1. author the tank meshes (build123d -> STL), then the MJCF + URDF
-./cad-env/bin/python    scripts/make_meshes.py        # trunk/hip/thigh/shank/sensor STLs
-./mujoco-env/bin/python scripts/make_quad_xml.py      # -> models/spyder_quad.xml (generated)
-./mujoco-env/bin/python scripts/make_quad_urdf.py     # -> urdf/spyder_quad.urdf (portable)
+# prove the contracts hold
+./mujoco-env/bin/python scripts/check_compat.py     # 8-DoF file is still drop-in Ant-v5
+./mujoco-env/bin/python scripts/check_spyder.py     # Spyder-v0: 12 hinge/12 motor, stands
 
-# 2. preview the look (no physics) and prove it stands (Spyder-v0 contract)
-./mujoco-env/bin/python scripts/render_robot.py       # hero + part previews
-./mujoco-env/bin/python scripts/check_spyder.py       # 1 free + 12 hinge, 12 motors, stands
+# see it live (macOS: live windows need mjpython)
+./mujoco-env/bin/mjpython scripts/view.py models/scene12.xml                    # orbit/poke
+./mujoco-env/bin/mjpython scripts/view.py models/scene12.xml --physics --policy wave
 
-# 3. see it live / record a clip
-./mujoco-env/bin/mjpython scripts/view.py models/scene_quad.xml                 # orbit
-./mujoco-env/bin/mjpython scripts/view.py models/scene_quad.xml --physics       # watch it move
-./mujoco-env/bin/python  scripts/view.py models/scene_quad.xml --save out.gif --main-body trunk
-./mujoco-env/bin/python  scripts/view.py models/scene_quad.xml --save out.gif --main-body trunk \
-    --cam-azimuth 225 --cam-elevation -8 --cam-distance 2.4   # same rollout, second angle
+# record the README clips (headless, no window)
+./mujoco-env/bin/python scripts/view.py models/scene12.xml --save docs/media/spyder12_preview.gif --policy wave
+./mujoco-env/bin/python scripts/view.py models/scene12.xml --save docs/media/spyder12_side.gif --policy wave \
+    --cam-azimuth 225 --cam-elevation -10 --cam-distance 2.6
 ```
 
-All geometry flows from one source of truth, `scripts/spyder_params.py`.
+`--policy wave` is a hand-scripted trot-phased sinusoid (no training) — enough to
+show the legs lifting. Real gaits come from RL (next phase: terrain + training).
+
+## Repo map
+
+- `models/spyder.xml` + `scene.xml` — the 8-DoF Ant-v5 twin (kept as baseline/reference).
+- `models/spyder12.xml` + `scene12.xml` — the 12-DoF spider (the robot this repo is about).
+- `envs/spyder_env.py` — registers `Spyder-v0` on Gymnasium's stock `AntEnv`.
+- `scripts/` — contract checks (`check_compat.py`, `check_spyder.py`), viewer/recorder (`view.py`), URDF export (`make_urdf.py`).
+- `docs/design_spyder12.md` — the full design doc: joint layout, geometry, physics choices, tuning knobs.

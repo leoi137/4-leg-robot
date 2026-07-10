@@ -8,8 +8,8 @@ __pycache__/
 *.png
 !docs/media/4_leg_robot.png
 !docs/media/spyder_preview.gif
-!docs/media/spyder_quad_preview.gif
-!docs/media/spyder_quad_side.gif
+!docs/media/spyder12_preview.gif
+!docs/media/spyder12_side.gif
 
 # Planning / research docs (local only)
 *TODO*.md

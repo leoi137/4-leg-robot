@@ -30,10 +30,22 @@ DEFAULT_MODEL = os.path.join(
 )
 
 
-def _ctrl(policy: str, rng: np.random.Generator, nu: int) -> np.ndarray:
+def _ctrl(policy: str, rng: np.random.Generator, nu: int, t: float = 0.0) -> np.ndarray:
     """One control vector in the actuators' [-1, 1] range."""
     if policy == "zero":
         return np.zeros(nu, dtype=np.float32)
+    if policy == "wave":
+        # Smooth trot-phased sinusoids — legs lift rhythmically without a trained
+        # policy. Tuned for spyder12 (12 motors, per-leg order hip/lift/knee,
+        # joint springs to lean on); on other models it degrades to a wiggle.
+        u = np.zeros(nu, dtype=np.float32)
+        amp = [0.03, 0.06, 0.05]  # hip, lift, knee
+        for j in range(nu):
+            leg, part = j // 3, j % 3
+            leg_phase = 0.0 if leg in (0, 3) else np.pi   # diagonal pairs together
+            lag = 0.0 if part == 1 else np.pi / 2          # lift leads, hip/knee follow
+            u[j] = amp[part % len(amp)] * np.sin(2 * np.pi * 1.2 * t + leg_phase - lag)
+        return u
     if policy == "gentle":  # mild torques — easier to watch than full random
         return rng.uniform(-0.3, 0.3, nu).astype(np.float32)
     return rng.uniform(-1.0, 1.0, nu).astype(np.float32)  # "random"
@@ -52,7 +64,7 @@ def view(xml_path: str, physics: bool = False, policy: str = "gentle", seed: int
     with mujoco.viewer.launch_passive(model, data) as viewer:
         while viewer.is_running():
             if physics:
-                data.ctrl[:] = _ctrl(policy, rng, model.nu)
+                data.ctrl[:] = _ctrl(policy, rng, model.nu, data.time)
                 mujoco.mj_step(model, data)
             viewer.sync()
             time.sleep(model.opt.timestep if physics else 1 / 60)
@@ -75,7 +87,7 @@ def record(
     """Headless offscreen render of a rollout to GIF/MP4 — no GUI window.
 
     GIF needs no extra deps; .mp4 needs `pip install imageio-ffmpeg`.
-    `main_body` is the torso/trunk body the Ant reward tracks ("trunk" for the quad).
+    `main_body` is the body the Ant reward tracks ("torso" in both models).
 
     Camera: by default the Ant env's own tracking camera (a front three-quarter
     view). Pass `cam_azimuth` to instead render from an explicit orbit camera
@@ -110,7 +122,7 @@ def record(
 
     frames = []
     for t in range(steps):
-        _, _, terminated, truncated, _ = env.step(_ctrl(policy, rng, nu))
+        _, _, terminated, truncated, _ = env.step(_ctrl(policy, rng, nu, env.unwrapped.data.time))
         if t % every == 0:
             frames.append(_frame())
         if terminated or truncated:
@@ -132,10 +144,10 @@ def main() -> None:
     p.add_argument("xml", nargs="?", default=DEFAULT_MODEL, help="path to MJCF")
     p.add_argument("--physics", action="store_true", help="step torques in the live viewer")
     p.add_argument("--save", metavar="OUT", help="headless record to GIF/MP4 instead of a window")
-    p.add_argument("--policy", choices=["zero", "random", "gentle"], default="gentle")
+    p.add_argument("--policy", choices=["zero", "random", "gentle", "wave"], default="gentle")
     p.add_argument("--steps", type=int, default=300, help="rollout length for --save")
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--main-body", default="torso", help='reward body: "torso" (Ant) or "trunk" (quad)')
+    p.add_argument("--main-body", default="torso", help="reward/tracking body (both models use 'torso')")
     p.add_argument("--cam-azimuth", type=float, default=None,
                    help="explicit orbit-camera azimuth for --save (else the env's tracking cam)")
     p.add_argument("--cam-elevation", type=float, default=-12.0)

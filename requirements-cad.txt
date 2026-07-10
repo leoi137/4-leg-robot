@@ -1,8 +1,0 @@
-# CAD mesh authoring only — build123d (OpenCASCADE solids -> STL/STEP).
-# Needs Python 3.13: build123d has no 3.14 wheel, and the only 3.14-installable
-# version (0.7.0) is broken against OpenCASCADE 7.9. Kept separate from the 3.14
-# training venv; the STLs it produces are static artifacts mujoco-env consumes.
-#
-#   /opt/homebrew/bin/python3.13 -m venv cad-env
-#   ./cad-env/bin/pip install -r requirements-cad.txt
-build123d==0.10.0

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this project is
 
-A custom MuJoCo quadruped ("**spyder**") built up from a **byte-identical copy of Gymnasium's `Ant-v5`**. The progression is: (1) reproduce stock Ant exactly, (2) view it, (3) make small parametric edits toward a cooler, **3D-printable**, mesh-based 4-legged robot whose silhouette/stance evokes `docs/media/4_leg_robot.png` (a heavy, tank-like quadruped).
+A custom MuJoCo quadruped ("**spyder**") built up from a **byte-identical copy of Gymnasium's `Ant-v5`**. The progression: (1) reproduce stock Ant exactly (`models/spyder.xml`, still enforced), (2) view it, (3) upgrade it to the **12-DoF spider** `models/spyder12.xml` / env `Spyder-v0` — same sphere-torso X-stance body, one extra *lift* joint per leg (hip yaw → lift pitch → knee pitch, spider convention). The design MUST stay a sprawled spider — **not** a legs-under-body dog (Go2/ANYmal style); that direction was tried and reverted. Full rationale: `docs/design_spyder12.md`.
 
 Two consumers drive every design decision:
 - **RL training in Gymnasium/MuJoCo (CPU)** — must stay drop-in compatible with `Ant-v5`.
@@ -20,13 +20,16 @@ macOS viewer gotcha: MuJoCo's **managed** `mujoco.viewer.launch()` crashes with 
 # Prove a custom XML is still drop-in Ant-v5 (obs (105,), action (8,), skeleton inventory):
 ./mujoco-env/bin/python scripts/check_compat.py [models/spyder.xml]
 
+# Prove the 12-DoF Spyder-v0 contract (action (12,), 13 bodies, zero-torque stand test):
+./mujoco-env/bin/python scripts/check_spyder.py
+
 # Live interactive viewer (orbit/poke); --physics steps torques so it moves:
-./mujoco-env/bin/mjpython scripts/view.py
-./mujoco-env/bin/mjpython scripts/view.py --physics --policy gentle
+./mujoco-env/bin/mjpython scripts/view.py models/scene12.xml
+./mujoco-env/bin/mjpython scripts/view.py models/scene12.xml --physics --policy wave
 
 # Headless — render a rollout to GIF/MP4, no window (.mp4 needs `pip install imageio-ffmpeg`):
-# (the committed preview lives at docs/media/spyder_preview.gif; other *.gif are ignored)
-./mujoco-env/bin/python scripts/view.py --save docs/media/spyder_preview.gif --policy gentle
+# (committed previews: docs/media/spyder_preview.gif + spyder12_{preview,side}.gif; other *.gif ignored)
+./mujoco-env/bin/python scripts/view.py models/scene12.xml --save docs/media/spyder12_preview.gif --policy wave
 ```
 
 Stock reference model (read, never edit): `mujoco-env/lib/python3.14/site-packages/gymnasium/envs/mujoco/assets/ant.xml`
@@ -76,8 +79,10 @@ Training (later phases):
 
 ## Repo contents
 
-- `models/` — the robot MJCF (`spyder.xml`) and `assets/` for future STL/OBJ meshes.
-- `scripts/` — `check_compat.py` (v5 contract) and `view.py` (viewer + recorder).
+- `models/` — `spyder.xml`+`scene.xml` (8-DoF Ant-v5 twin, kept as baseline), `spyder12.xml`+`scene12.xml` (the 12-DoF spider), `assets/` for STL/OBJ meshes.
+- `envs/spyder_env.py` — registers `Spyder-v0` (AntEnv + spyder12 kwargs; obs (113,), action (12,)).
+- `scripts/` — `check_compat.py` (v5 contract), `check_spyder.py` (Spyder-v0 contract), `view.py` (viewer + recorder, incl. the scripted `wave` policy), `make_urdf.py` (8-DoF URDF export).
+- `docs/design_spyder12.md` — the 12-DoF design doc (joint layout, geometry, physics choices, tuning knobs).
 - `docs/references/` — external papers/reports (e.g. the MuJoCo Playground MJX/GPU-RL report).
 - `docs/media/` — images/clips for the README & docs: `4_leg_robot.png` (visual target), `spyder_preview.gif` (preview render).
 - `mujoco-env/` — the virtualenv (gitignored; do not commit/edit its site-packages).
