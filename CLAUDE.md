@@ -79,7 +79,7 @@ Training (later phases):
 
 ## Repo contents
 
-- `models/` — `spyder.xml`+`scene.xml` (8-DoF Ant-v5 twin, kept as baseline), `spyder12.xml`+`scene12.xml` (the 12-DoF spider), `assets/` for STL/OBJ meshes.
+- `models/` — `spyder.xml`+`scene.xml` (8-DoF Ant-v5 twin, kept as baseline), `spyder12.xml`+`scene12.xml` (the 12-DoF spider), `skins/spyder12_bastion.xml` (armored visual skin — massless/collision-free geoms over the same skeleton; physics byte-identical, keep it that way), `assets/` for STL/OBJ meshes.
 - `envs/spyder_env.py` — registers `Spyder-v0` (AntEnv + spyder12 kwargs; obs (113,), action (12,)).
 - `scripts/` — `check_compat.py` (v5 contract), `check_spyder.py` (Spyder-v0 contract), `view.py` (viewer + recorder, incl. the scripted `wave` policy), `make_urdf.py` (8-DoF URDF export).
 - `docs/design_spyder12.md` — the 12-DoF design doc (joint layout, geometry, physics choices, tuning knobs).
